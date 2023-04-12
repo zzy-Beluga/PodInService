@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +35,7 @@ func init() {
 	serviceClient = clientset.CoreV1().Services("default")
 }
 
-func getServiceForPod(podName string) (string, error) {
+func getServiceForPod(ctx context.Context,podName string) (string, error) {
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
