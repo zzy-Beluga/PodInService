@@ -4,12 +4,33 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bitnami-labs/kubewatch/pkg/handlers"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
 )
+
+// Event indicate the informerEvent
+type Event struct {
+	key          string
+	eventType    string
+	namespace    string
+	resourceType string
+}
+
+// Controller object
+type Controller struct {
+	logger       *logrus.Entry
+	clientset    kubernetes.Interface
+	queue        workqueue.RateLimitingInterface
+	informer     cache.SharedIndexInformer
+	eventHandler handlers.Handler
+}
 
 var clientset *kubernetes.Clientset
 var podClient v1.PodInterface
@@ -35,7 +56,8 @@ func init() {
 	serviceClient = clientset.CoreV1().Services("default")
 }
 
-func getServiceForPod(ctx context.Context,podName string) (string, error) {
+func getServiceForPod(podName string) (string, error) {
+	ctx := context.Background()
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
@@ -61,4 +83,8 @@ func getServiceForPod(ctx context.Context,podName string) (string, error) {
 
 	// return the name of the first service in the list
 	return serviceList.Items[0].GetName(), nil
+}
+
+func Start() {
+	getServiceForPod("mypod")
 }
