@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -35,7 +36,7 @@ func init() {
 
 func getServiceForPod(podName string) (string, error) {
 	// get the pod object
-	pod, err := podClient.Get(podName, metav1.GetOptions{})
+	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +48,7 @@ func getServiceForPod(podName string) (string, error) {
 	labelSelector := labels.Set(podLabels).AsSelector()
 
 	// list all services with the same labels as the pod
-	serviceList, err := serviceClient.List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+	serviceList, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return "", err
 	}
