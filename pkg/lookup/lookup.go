@@ -1,4 +1,4 @@
-package controller
+package lookup
 
 import (
 	"context"
@@ -11,25 +11,6 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-// Event indicate the informerEvent
-/*
-type Event struct {
-	key          string
-	eventType    string
-	namespace    string
-	resourceType string
-}
-
-// Controller object
-type Controller struct {
-	logger       *logrus.Entry
-	clientset    kubernetes.Interface
-	queue        workqueue.RateLimitingInterface
-	informer     cache.SharedIndexInformer
-	eventHandler handlers.Handler
-}
-*/
 
 var clientset *kubernetes.Clientset
 var podClient v1.PodInterface
@@ -88,7 +69,7 @@ func getServiceForPod(podName string) (string, error) {
 	return serviceList.Items[0].GetName(), nil
 }
 
-func Start() (string, error) {
+func Find() (string, error) {
 	svc, err := getServiceForPod("coredns-565d847f94-mzqjr")
 	if err != nil {
 		return "", err

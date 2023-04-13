@@ -1,11 +1,11 @@
 package main
 
 import (
-	"PodInService/pkg/controller"
+	"PodInService/pkg/lookup"
 	"fmt"
 )
 
 func main() {
-	svc, _ := controller.Start()
+	svc, _ := lookup.Find()
 	fmt.Println(svc)
 }
