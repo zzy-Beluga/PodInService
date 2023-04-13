@@ -1,7 +1,6 @@
 package lookup
 
 import (
-	"PodInService/common"
 	"context"
 	"fmt"
 	"os"
@@ -38,8 +37,9 @@ func getServiceForPod(podName, namespace string) (string, error) {
 	podClient = clientset.CoreV1().Pods(namespace)
 
 	// create the service client
-	serviceClient = clientset.CoreV1().Services(common.SvcNamespace)
+	serviceClient = clientset.CoreV1().Services(namespace)
 	ctx := context.Background()
+
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
@@ -49,27 +49,39 @@ func getServiceForPod(podName, namespace string) (string, error) {
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
 	fmt.Println(podLabels)
-	appLabels := make(map[string]string)
-	serviceList := &svcv1.ServiceList{}
-	for k, v := range podLabels {
-		appLabels[k] = v
-		labelSelector := labels.Set(appLabels).AsSelector()
 
-		// list all services with the same labels as the pod
-		serviceList, err = serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
+	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
+	matchLabels := make(map[string]string)
+	serviceList := &svcv1.ServiceList{}
+
+	// traverse all labels to find all svc matches
+	for k, v := range podLabels {
+
+		// cache the current label and create a selector for svc matching
+		matchLabels[k] = v
+		labelSelector := labels.Set(matchLabels).AsSelector()
+
+		// list all services with the same labels as the pod for the current labels
+		sl, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
 		if err != nil {
 			return "", err
 		}
-		if len(serviceList.Items) == 0 {
+
+		//no matching svc for this label
+		if len(sl.Items) == 0 {
 			continue
 		}
+
+		// append the svc to serviceList
+		serviceList.Items = append(serviceList.Items, sl.Items...)
 	}
+
+	// no matched svc
 	if len(serviceList.Items) == 0 {
 		return "", fmt.Errorf("no services found for pod %s", podName)
 	}
 
-	// return the name of the first service in the list
-	fmt.Println(len(serviceList.Items))
+	// return all matched svc
 	return serviceList.Items[0].GetName(), nil
 }
 
