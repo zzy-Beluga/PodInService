@@ -33,12 +33,14 @@ func init() {
 }
 
 func getServiceForPod(podName, namespace string) (string, error) {
+
+	ctx := context.Background()
+
 	// create the pod client
 	podClient = clientset.CoreV1().Pods(namespace)
 
-	// create the service client
-	serviceClient = clientset.CoreV1().Services(namespace)
-	ctx := context.Background()
+	// create the service client which have access all namespaces
+	serviceClient = clientset.CoreV1().Services("")
 
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
@@ -48,7 +50,6 @@ func getServiceForPod(podName, namespace string) (string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
-	fmt.Println(podLabels)
 
 	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
 	matchLabels := make(map[string]string)
@@ -85,7 +86,7 @@ func getServiceForPod(podName, namespace string) (string, error) {
 	return serviceList.Items[0].GetName(), nil
 }
 
-func Find(namespace, podname string) (string, error) {
+func Find(podname, namespace string) (string, error) {
 	svc, err := getServiceForPod(podname, namespace)
 	if err != nil {
 		return "", err
