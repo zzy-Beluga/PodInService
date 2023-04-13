@@ -1,10 +1,12 @@
 package lookup
 
 import (
+	"PodInService/common"
 	"context"
 	"fmt"
 	"os"
 
+	svcv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -29,15 +31,14 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-
-	// create the pod client
-	podClient = clientset.CoreV1().Pods("kube-system")
-
-	// create the service client
-	serviceClient = clientset.CoreV1().Services("kube-system")
 }
 
-func getServiceForPod(podName string) (string, error) {
+func getServiceForPod(podName, namespace string) (string, error) {
+	// create the pod client
+	podClient = clientset.CoreV1().Pods(namespace)
+
+	// create the service client
+	serviceClient = clientset.CoreV1().Services(common.SvcNamespace)
 	ctx := context.Background()
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
@@ -47,19 +48,22 @@ func getServiceForPod(podName string) (string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
-	appLabels := make(map[string]string)
-	appLabels["k8s-app"] = podLabels["k8s-app"]
 	fmt.Println(podLabels)
-	// create a label selector for the pod's labels
-	labelSelector := labels.Set(appLabels).AsSelector()
+	appLabels := make(map[string]string)
+	serviceList := &svcv1.ServiceList{}
+	for k, v := range podLabels {
+		appLabels[k] = v
+		labelSelector := labels.Set(appLabels).AsSelector()
 
-	// list all services with the same labels as the pod
-	serviceList, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
-	if err != nil {
-		return "", err
+		// list all services with the same labels as the pod
+		serviceList, err = serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
+		if err != nil {
+			return "", err
+		}
+		if len(serviceList.Items) == 0 {
+			continue
+		}
 	}
-
-	// if there are no services, return an error
 	if len(serviceList.Items) == 0 {
 		return "", fmt.Errorf("no services found for pod %s", podName)
 	}
@@ -69,8 +73,8 @@ func getServiceForPod(podName string) (string, error) {
 	return serviceList.Items[0].GetName(), nil
 }
 
-func Find() (string, error) {
-	svc, err := getServiceForPod("coredns-565d847f94-mzqjr")
+func Find(namespace, podname string) (string, error) {
+	svc, err := getServiceForPod(podname, namespace)
 	if err != nil {
 		return "", err
 	}
