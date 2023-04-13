@@ -50,8 +50,6 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
-	fmt.Println(podLabels)
-
 	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
 	matchLabels := make(map[string]string)
 	serviceList := &svcv1.ServiceList{}
@@ -61,11 +59,13 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 		// cache the current label and create a selector for svc matching
 		matchLabels[k] = v
+		fmt.Println(matchLabels)
 		labelSelector := labels.Set(matchLabels).AsSelector()
 
 		// list all services with the same labels as the pod for the current labels
 		fmt.Println(labelSelector.String())
 		sl, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
+		fmt.Println(sl)
 		if err != nil {
 			return nil, err
 		}
