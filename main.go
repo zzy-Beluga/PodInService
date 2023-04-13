@@ -12,9 +12,14 @@ func main() {
 	flag.StringVar(&namespace, "n", "default", "namespace")
 	flag.StringVar(&podname, "p", "", "podname")
 	flag.Parse()
-	ans, err := lookup.Find(podname, namespace)
+	res, err := lookup.Find(podname, namespace)
 	if err != nil {
 		fmt.Print(err)
 	}
-	fmt.Println(ans)
+
+	// print svc results
+	fmt.Println("----The Pod Matches the Following Services Resource----")
+	for k, v := range res {
+		fmt.Printf("Service Name: %v, Service NameSapce: %v \n", k, v)
+	}
 }

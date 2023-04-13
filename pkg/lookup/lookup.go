@@ -32,7 +32,7 @@ func init() {
 	}
 }
 
-func getServiceForPod(podName, namespace string) (string, error) {
+func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 	ctx := context.Background()
 
@@ -45,7 +45,7 @@ func getServiceForPod(podName, namespace string) (string, error) {
 	// get the pod object
 	pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// get the labels for the pod
@@ -65,7 +65,7 @@ func getServiceForPod(podName, namespace string) (string, error) {
 		// list all services with the same labels as the pod for the current labels
 		sl, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		//no matching svc for this label
@@ -79,17 +79,23 @@ func getServiceForPod(podName, namespace string) (string, error) {
 
 	// no matched svc
 	if len(serviceList.Items) == 0 {
-		return "", fmt.Errorf("no services found for pod %s", podName)
+		return nil, fmt.Errorf("no services found for pod %s", podName)
+	}
+
+	// store results into map
+	res := make(map[string]string)
+	for _, i := range serviceList.Items {
+		res[i.GetName()] = i.GetNamespace()
 	}
 
 	// return all matched svc
-	return serviceList.Items[0].GetName(), nil
+	return res, nil
 }
 
-func Find(podname, namespace string) (string, error) {
+func Find(podname, namespace string) (map[string]string, error) {
 	svc, err := getServiceForPod(podname, namespace)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return svc, nil
 }
