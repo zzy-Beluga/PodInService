@@ -3,19 +3,17 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/bitnami-labs/kubewatch/pkg/handlers"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/workqueue"
 )
 
 // Event indicate the informerEvent
+/*
 type Event struct {
 	key          string
 	eventType    string
@@ -31,6 +29,7 @@ type Controller struct {
 	informer     cache.SharedIndexInformer
 	eventHandler handlers.Handler
 }
+*/
 
 var clientset *kubernetes.Clientset
 var podClient v1.PodInterface
@@ -38,7 +37,8 @@ var serviceClient v1.ServiceInterface
 
 func init() {
 	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", "")
+	path := os.Getenv("HOME") + "/.kube/config"
+	config, err := clientcmd.BuildConfigFromFlags("", path)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -50,7 +50,7 @@ func init() {
 	}
 
 	// create the pod client
-	podClient = clientset.CoreV1().Pods("default")
+	podClient = clientset.CoreV1().Pods("kube-system")
 
 	// create the service client
 	serviceClient = clientset.CoreV1().Services("default")
@@ -66,7 +66,7 @@ func getServiceForPod(podName string) (string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
-
+	fmt.Println(podLabels)
 	// create a label selector for the pod's labels
 	labelSelector := labels.Set(podLabels).AsSelector()
 
@@ -82,9 +82,14 @@ func getServiceForPod(podName string) (string, error) {
 	}
 
 	// return the name of the first service in the list
+	fmt.Println(len(serviceList.Items))
 	return serviceList.Items[0].GetName(), nil
 }
 
-func Start() {
-	getServiceForPod("mypod")
+func Start() (string, error) {
+	svc, err := getServiceForPod("kube-apiserver-minikube")
+	if err != nil {
+		return "", err
+	}
+	return svc, nil
 }
