@@ -6,5 +6,6 @@ import (
 )
 
 func main() {
-	fmt.Println(controller.Start())
+	svc, _ := controller.Start()
+	fmt.Println(svc)
 }

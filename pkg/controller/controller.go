@@ -53,7 +53,7 @@ func init() {
 	podClient = clientset.CoreV1().Pods("kube-system")
 
 	// create the service client
-	serviceClient = clientset.CoreV1().Services("default")
+	serviceClient = clientset.CoreV1().Services("kube-system")
 }
 
 func getServiceForPod(podName string) (string, error) {
@@ -66,9 +66,11 @@ func getServiceForPod(podName string) (string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
+	appLabels := make(map[string]string)
+	appLabels["k8s-app"] = podLabels["k8s-app"]
 	fmt.Println(podLabels)
 	// create a label selector for the pod's labels
-	labelSelector := labels.Set(podLabels).AsSelector()
+	labelSelector := labels.Set(appLabels).AsSelector()
 
 	// list all services with the same labels as the pod
 	serviceList, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
@@ -87,7 +89,7 @@ func getServiceForPod(podName string) (string, error) {
 }
 
 func Start() (string, error) {
-	svc, err := getServiceForPod("kube-apiserver-minikube")
+	svc, err := getServiceForPod("coredns-565d847f94-mzqjr")
 	if err != nil {
 		return "", err
 	}
