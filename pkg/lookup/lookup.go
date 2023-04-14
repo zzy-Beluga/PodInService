@@ -54,6 +54,8 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 	matchLabels := make(map[string]string)
 	serviceList := &svcv1.ServiceList{}
 
+	fmt.Println(serviceClient.List(ctx, metav1.ListOptions{}))
+
 	// traverse all labels to find all svc matches
 	for k, v := range podLabels {
 
