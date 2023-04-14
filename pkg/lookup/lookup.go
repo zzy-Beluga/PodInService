@@ -6,7 +6,7 @@ import (
 	"os"
 	"reflect"
 
-	svcv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -32,10 +32,11 @@ func init() {
 	}
 }
 
-func serviceFilter(svclist *svcv1.ServiceList, matchlabels map[string]string) ([]svcv1.Service, error) {
+// filter svc by spec.selector
+func serviceFilter(svclist *corev1.ServiceList, matchlabels map[string]string) ([]corev1.Service, error) {
 	for _, i := range svclist.Items {
 		if reflect.DeepEqual(i.Spec.Selector, matchlabels) {
-			s := []svcv1.Service{i}
+			s := []corev1.Service{i}
 			return s, nil
 		}
 	}
@@ -62,7 +63,7 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 	podLabels := pod.GetLabels()
 	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
 	matchLabels := make(map[string]string)
-	serviceList := make([]svcv1.Service, 0)
+	serviceList := make([]corev1.Service, 0)
 
 	// traverse all labels to find all svc matches
 	for k, v := range podLabels {
@@ -82,19 +83,13 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 		delete(matchLabels, k)
 
-		//no matching svc for this label
-		if len(sl) == 0 {
-			fmt.Printf("The Label %v has no matched service \n", v)
-			continue
-		}
-
 		// append the svc to serviceList
 		serviceList = append(serviceList, sl...)
 	}
 
 	// no matched svc
 	if len(serviceList) == 0 {
-		return nil, fmt.Errorf("no services found for pod %s", podName)
+		return nil, fmt.Errorf("no services found for pod %s \n", podName)
 	}
 
 	// store results into map
