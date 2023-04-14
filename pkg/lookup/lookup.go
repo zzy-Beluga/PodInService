@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 
 	svcv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,6 +32,16 @@ func init() {
 	}
 }
 
+func serviceFilter(svclist *svcv1.ServiceList, matchlabels map[string]string) ([]svcv1.Service, error) {
+	for _, i := range svclist.Items {
+		if reflect.DeepEqual(i.Spec.Selector, matchlabels) {
+			s := []svcv1.Service{i}
+			return s, nil
+		}
+	}
+	return nil, nil
+}
+
 func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 	ctx := context.Background()
@@ -52,22 +62,20 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 	podLabels := pod.GetLabels()
 	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
 	matchLabels := make(map[string]string)
-	serviceList := &svcv1.ServiceList{}
-
-	fmt.Println(serviceClient.List(ctx, metav1.ListOptions{}))
+	serviceList := make([]svcv1.Service, 0)
 
 	// traverse all labels to find all svc matches
 	for k, v := range podLabels {
-
 		// cache the current label and create a selector for svc matching
 		matchLabels[k] = v
-		fmt.Println(matchLabels)
-		labelSelector := labels.Set(matchLabels).AsSelector()
 
 		// list all services with the same labels as the pod for the current labels
-		fmt.Println(labelSelector.String())
-		sl, err := serviceClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector.String()})
-		fmt.Println(sl)
+		fullist, err := serviceClient.List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		sl, err := serviceFilter(fullist, matchLabels)
 		if err != nil {
 			return nil, err
 		}
@@ -75,23 +83,23 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 		delete(matchLabels, k)
 
 		//no matching svc for this label
-		if len(sl.Items) == 0 {
+		if len(sl) == 0 {
 			fmt.Printf("The Label %v has no matched service \n", v)
 			continue
 		}
 
 		// append the svc to serviceList
-		serviceList.Items = append(serviceList.Items, sl.Items...)
+		serviceList = append(serviceList, sl...)
 	}
 
 	// no matched svc
-	if len(serviceList.Items) == 0 {
+	if len(serviceList) == 0 {
 		return nil, fmt.Errorf("no services found for pod %s", podName)
 	}
 
 	// store results into map
 	res := make(map[string]string)
-	for _, i := range serviceList.Items {
+	for _, i := range serviceList {
 		res[i.GetName()] = i.GetNamespace()
 	}
 
