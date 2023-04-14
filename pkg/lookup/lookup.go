@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +18,7 @@ var clientset *kubernetes.Clientset
 var podClient v1.PodInterface
 var serviceClient v1.ServiceInterface
 
+// init client set to connect to apiserver
 func init() {
 	// use the current context in kubeconfig
 	path := os.Getenv("HOME") + "/.kube/config"
@@ -33,19 +35,29 @@ func init() {
 }
 
 // filter svc by spec.selector
-func serviceFilter(svclist *corev1.ServiceList, matchlabels map[string]string) ([]corev1.Service, error) {
+func serviceFilter(svclist *corev1.ServiceList, matchlabels map[string]string) []corev1.Service {
+
+	// there could be more than one matching svc for one label
+	sl := []corev1.Service{}
+
+	// for every service compare the selector with the label we have
 	for _, i := range svclist.Items {
+
+		// if equal, append it to s
 		if reflect.DeepEqual(i.Spec.Selector, matchlabels) {
-			s := []corev1.Service{i}
-			return s, nil
+			sl = append(sl, i)
 		}
+
 	}
-	return nil, nil
+
+	return sl
 }
 
 func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
-	ctx := context.Background()
+	// setting timeout mechanism, cancel the action if it exceeds 20s when calling the apis
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
 
 	// create the pod client
 	podClient = clientset.CoreV1().Pods(namespace)
@@ -61,12 +73,16 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 	// get the labels for the pod
 	podLabels := pod.GetLabels()
-	// init the serviceList to contain all matchable svc and matchLabels to cache each matching labels
+
+	// init matchLabels to cache each matching labels
 	matchLabels := make(map[string]string)
+
+	// init serviceList to store the matched svc
 	serviceList := make([]corev1.Service, 0)
 
 	// traverse all labels to find all svc matches
 	for k, v := range podLabels {
+
 		// cache the current label and create a selector for svc matching
 		matchLabels[k] = v
 
@@ -76,11 +92,13 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 			return nil, err
 		}
 
-		sl, err := serviceFilter(fullist, matchLabels)
+		// fileter out the matching svc
+		sl := serviceFilter(fullist, matchLabels)
 		if err != nil {
 			return nil, err
 		}
 
+		// clear the matched label
 		delete(matchLabels, k)
 
 		// append the svc to serviceList
@@ -89,11 +107,13 @@ func getServiceForPod(podName, namespace string) (map[string]string, error) {
 
 	// no matched svc
 	if len(serviceList) == 0 {
-		return nil, fmt.Errorf("no services found for pod %s \n", podName)
+		return nil, fmt.Errorf("no services found for pod %s", podName)
 	}
 
 	// store results into map
 	res := make(map[string]string)
+
+	// get all the service name and store seperately
 	for _, i := range serviceList {
 		res[i.GetName()] = i.GetNamespace()
 	}
